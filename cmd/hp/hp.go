@@ -22,8 +22,10 @@ func processStdin(in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	subject := msg.Header.Get("Subject")
-	fmt.Printf("%v", subject)
+	//subject := msg.Header.Get("Subject")
+	for k, v := range msg.Header {
+		fmt.Printf("%v: %v\n", k, v)
+	}
 	return nil
 }
 
