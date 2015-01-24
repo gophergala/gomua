@@ -22,3 +22,6 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+# stop git from thinking vim .swp files are things it should track :p
+*.swp
