@@ -3,11 +3,16 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/mail"
 	"net/smtp"
+	"os/user"
+	"strconv"
+	"strings"
 )
 
+// Message contains critical data necessary for sending a message.
 type Message struct {
 	To      []*mail.Address
 	From    *mail.Address
@@ -16,6 +21,7 @@ type Message struct {
 	Content string
 }
 
+// NewMessage takes strings that specify the recipients, the sender, the subject, a slice of other email header values, and the content of an email.
 func NewMessage(to, from, subject string, headers []string, content string) *Message {
 	m := new(Message)
 	m.To, _ = mail.ParseAddressList(to)
@@ -27,6 +33,7 @@ func NewMessage(to, from, subject string, headers []string, content string) *Mes
 	return m
 }
 
+// Outputs the list of parsed addresses back into a single string for appending to the email.
 func (m *Message) allTo() string {
 	var output string
 
@@ -40,6 +47,7 @@ func (m *Message) allTo() string {
 	return output
 }
 
+// Writes the slice of headers one on each line.
 func (m *Message) allHeaders() string {
 	var output string
 
@@ -50,6 +58,7 @@ func (m *Message) allHeaders() string {
 	return output
 }
 
+// SMTPServer describes a connection to an SMTP server for sending mail.
 type SMTPServer struct {
 	name     string
 	username string
@@ -59,18 +68,44 @@ type SMTPServer struct {
 	tlsB     bool
 }
 
-func staticSMTPServer() *SMTPServer {
+// NewSMTPServer reads from a configuration file, and returns a new SMTPServer struct ready to use.
+func NewSMTPServer(filename string) (*SMTPServer, error) {
 	s := new(SMTPServer)
-	s.name = "smtp.gmail.com"
-	s.username = "mr.k.frenata@gmail.com"
-	s.password = "gophergala"
-	s.address = "smtp.gmail.com"
-	s.port = 587
-	s.tlsB = true
 
-	return s
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(string(b), "\n")
+
+	for _, l := range lines {
+		switch {
+		case strings.HasPrefix(l, "Name="):
+			s.name = strings.TrimPrefix(l, "Name=")
+		case strings.HasPrefix(l, "Username="):
+			s.username = strings.TrimPrefix(l, "Username=")
+		case strings.HasPrefix(l, "Password="):
+			s.password = strings.TrimPrefix(l, "Password=")
+		case strings.HasPrefix(l, "Address="):
+			s.address = strings.TrimPrefix(l, "Address=")
+		case strings.HasPrefix(l, "Port="):
+			s.port, _ = strconv.Atoi(strings.TrimPrefix(l, "Port="))
+		case strings.HasPrefix(l, "TLS="):
+			str := strings.TrimPrefix(l, "TLS=")
+			if str == "true" {
+				s.tlsB = true
+			} else {
+				s.tlsB = false
+			}
+
+		}
+	}
+	return s, nil
 }
 
+// Connects and authenticates to an SMTPServer, returns a client connection ready to write.
+// This client *must be Quit()ed after finished using, preferably with defer.
 func connectSMTP(s *SMTPServer) (*smtp.Client, error) {
 	c, err := smtp.Dial(fmt.Sprintf("%s:%d", s.address, s.port))
 	if err != nil {
@@ -89,7 +124,8 @@ func connectSMTP(s *SMTPServer) (*smtp.Client, error) {
 	return c, nil
 }
 
-func sendSMTP(server *SMTPServer, msg *Message) error {
+// SendSMTP takes a SMTP server and a message, connects to the server, sends the message, and quits the connection to the server.
+func SendSMTP(server *SMTPServer, msg *Message) error {
 	// connect to SMTP server
 	var c *smtp.Client
 	c, err := connectSMTP(server)
@@ -127,7 +163,16 @@ func sendSMTP(server *SMTPServer, msg *Message) error {
 }
 
 func main() {
-	s := staticSMTPServer()
+	// Look for a SMTPServer configuration file in ~/.mua/send.cfg
+	u, _ := user.Current()
+	s, err := NewSMTPServer(u.HomeDir + "/.mua/send.cfg")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	m := NewMessage("danweasel@gmail.com, dan.weasel@gmail.com", "mr.k.frenata@gmail.com", "Is Anybody Out There?", []string{"Reply-To: Frenata <mr.k.frenata@gmail.com>", "Content-Type: text/plain"}, "Ground control to Major Tom!")
-	fmt.Println(sendSMTP(s, m))
+	if SendSMTP(s, m) == nil {
+		fmt.Println("Message sent sucessfully!")
+	}
 }
