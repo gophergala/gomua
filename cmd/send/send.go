@@ -15,6 +15,8 @@ import (
 	"strings"
 )
 
+var configLocation = "/.gomua/send.cfg"
+
 // Message contains critical data necessary for sending a message.
 type Message struct {
 	To      []*mail.Address
@@ -172,7 +174,7 @@ func sendSMTP(server *SMTPServer, msg *Message) error {
 func Send() {
 	// Look for a SMTPServer configuration file in ~/.mua/send.cfg
 	u, _ := user.Current()
-	srv, err := NewSMTPServer(u.HomeDir + "/.mua/send.cfg")
+	srv, err := NewSMTPServer(u.HomeDir + configLocation)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -189,7 +191,7 @@ func Send() {
 	fmt.Print("Subject: ")
 	cli.Scan()
 	subject := cli.Text()
-	fmt.Print("Content: ")
+	fmt.Print("Content: (Enter SEND to finish adding content and send the email.\n")
 
 	var content string
 	for {
