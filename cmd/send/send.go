@@ -6,29 +6,48 @@ import (
 	"log"
 	"net/mail"
 	"net/smtp"
-	"time"
 )
 
 type Message struct {
-	To         []*mail.Address
-	From       *mail.Address
-	Subject    string
-	Date       time.Time
-	ReplyID    string
-	References []string
-	Content    string
+	To      []*mail.Address
+	From    *mail.Address
+	Subject string
+	Headers []string
+	Content string
 }
 
-func NewMessage(to string, from string, subject string, date time.Time, replyID string, references []string, content string) (m Message) {
+func NewMessage(to, from, subject string, headers []string, content string) *Message {
+	m := new(Message)
 	m.To, _ = mail.ParseAddressList(to)
 	m.From, _ = mail.ParseAddress(from)
 	m.Subject = subject
-	m.Date = date
-	m.ReplyID = replyID
-	m.References = references
+	m.Headers = headers
 	m.Content = content
 
 	return m
+}
+
+func (m *Message) allTo() string {
+	var output string
+
+	for i, f := range m.To {
+		output += f.String()
+		if len(m.To)-1 > i {
+			output += ","
+		}
+	}
+
+	return output
+}
+
+func (m *Message) allHeaders() string {
+	var output string
+
+	for _, h := range m.Headers {
+		output += h + "\n"
+	}
+
+	return output
 }
 
 type SMTPServer struct {
@@ -70,7 +89,7 @@ func connectSMTP(s *SMTPServer) (*smtp.Client, error) {
 	return c, nil
 }
 
-func sendSMTP(server *SMTPServer, msg Message) error {
+func sendSMTP(server *SMTPServer, msg *Message) error {
 	// connect to SMTP server
 	var c *smtp.Client
 	c, err := connectSMTP(server)
@@ -80,11 +99,14 @@ func sendSMTP(server *SMTPServer, msg Message) error {
 	defer c.Quit()
 
 	// Set sender and receiver
-	if err := c.Mail("mr.k.frenata@gmail.com"); err != nil {
+	if err := c.Mail(msg.From.Address); err != nil {
 		log.Fatal(err)
 	}
-	if err := c.Rcpt("danweasel@gmail.com"); err != nil {
-		log.Fatal(err)
+
+	for _, t := range msg.To {
+		if err := c.Rcpt(t.Address); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// Send email body
@@ -92,7 +114,7 @@ func sendSMTP(server *SMTPServer, msg Message) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = fmt.Fprint(wc, "To: Andrew <danweasel@gmail.com>\nFrom: Frenata <mr.k.frenata@gmail.com>\nSubject: testing message from Go\n\nGround control to Major Tom!")
+	_, err = fmt.Fprintf(wc, "To: %v\nFrom: %v\nSubject: %v\n%v\n\n%v", msg.allTo(), msg.From, msg.Subject, msg.allHeaders(), msg.Content)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -106,6 +128,6 @@ func sendSMTP(server *SMTPServer, msg Message) error {
 
 func main() {
 	s := staticSMTPServer()
-	m := NewMessage("danweasel@gmail.com", "mr.k.frenata@gmail.com", "Test Message", time.Now(), "", nil, "This is test message content.")
+	m := NewMessage("danweasel@gmail.com, dan.weasel@gmail.com", "mr.k.frenata@gmail.com", "Is Anybody Out There?", []string{"Reply-To: Frenata <mr.k.frenata@gmail.com>", "Content-Type: text/plain"}, "Ground control to Major Tom!")
 	fmt.Println(sendSMTP(s, m))
 }
