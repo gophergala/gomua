@@ -27,7 +27,7 @@ var exitCode = 0
 // Later, allow user to specify a filename, or directory as args.
 
 // If in == nil, the source is the contents of the file with the given filename.
-func processFile(filename string, in io.Reader, out io.Writer, stdin bool) error {
+func processFile(filename string, in io.Reader, stdin bool) error {
 	if in == nil {
 		f, err := os.Open(filename)
 		if err != nil {
@@ -51,7 +51,7 @@ func processFile(filename string, in io.Reader, out io.Writer, stdin bool) error
 
 func visitFile(path string, f os.FileInfo, err error) error {
 	if err == nil {
-		err = processFile(path, nil, os.Stdout, false)
+		err = processFile(path, nil, false)
 	}
 	if err != nil {
 		fmt.Printf("%s", err)
@@ -67,7 +67,7 @@ func walkDir(path string) {
 func main() {
 	flag.Parse()
 	if flag.NArg() == 0 {
-		if err := processFile("<standard input>", os.Stdin, os.Stdout, true); err != nil {
+		if err := processFile("<standard input>", os.Stdin, true); err != nil {
 			fmt.Printf("%v", err)
 			exitCode = 2
 		}
@@ -83,7 +83,7 @@ func main() {
 		case dir.IsDir():
 			walkDir(path)
 		default:
-			if err := processFile(path, nil, os.Stdout, false); err != nil {
+			if err := processFile(path, nil, false); err != nil {
 				fmt.Printf("%v", err)
 				exitCode = 2
 			}
