@@ -1,10 +1,20 @@
+// Copyright 2014 Gabriel Guzman <gabe@lifewaza.com>
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+//
+// Heavily based on the gofmt command:
+// Copyright 2009 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"net/mail"
 	"os"
+	"path/filepath"
 )
 
 var exitCode = 0
@@ -16,7 +26,17 @@ var exitCode = 0
 //  at a time.
 // Later, allow user to specify a filename, or directory as args.
 
-func processStdin(in io.Reader, out io.Writer) error {
+// If in == nil, the source is the contents of the file with the given filename.
+func processFile(filename string, in io.Reader, out io.Writer, stdin bool) error {
+	if in == nil {
+		f, err := os.Open(filename)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		in = f
+	}
+
 	msg, err := mail.ReadMessage(in)
 	if err != nil {
 		return err
@@ -26,13 +46,48 @@ func processStdin(in io.Reader, out io.Writer) error {
 	for k, v := range msg.Header {
 		fmt.Printf("%v: %v\n", k, v)
 	}
+	return err
+}
+
+func visitFile(path string, f os.FileInfo, err error) error {
+	if err == nil {
+		err = processFile(path, nil, os.Stdout, false)
+	}
+	if err != nil {
+		fmt.Printf("%s", err)
+		exitCode = 2
+	}
 	return nil
 }
 
+func walkDir(path string) {
+	filepath.Walk(path, visitFile)
+}
+
 func main() {
-	if err := processStdin(os.Stdin, os.Stdout); err != nil {
-		fmt.Printf("%v", err)
-		exitCode = 2
+	flag.Parse()
+	if flag.NArg() == 0 {
+		if err := processFile("<standard input>", os.Stdin, os.Stdout, true); err != nil {
+			fmt.Printf("%v", err)
+			exitCode = 2
+		}
+		return
+	}
+
+	for i := 0; i < flag.NArg(); i++ {
+		path := flag.Arg(i)
+		switch dir, err := os.Stat(path); {
+		case err != nil:
+			fmt.Printf("%v", err)
+			exitCode = 2
+		case dir.IsDir():
+			walkDir(path)
+		default:
+			if err := processFile(path, nil, os.Stdout, false); err != nil {
+				fmt.Printf("%v", err)
+				exitCode = 2
+			}
+		}
 	}
 	os.Exit(exitCode)
 }

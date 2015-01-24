@@ -7,5 +7,5 @@ import (
 
 func TestProcessStdin(t *testing.T) {
 	// Create a writer to send to the function...
-	processStdin(os.Stdin, os.Stdout)
+	processFile(path, os.Stdin, os.Stdout, false)
 }
