@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/mail"
 	"net/smtp"
+	"os"
 	"os/user"
 	"strconv"
 	"strings"
@@ -74,7 +77,7 @@ func NewSMTPServer(filename string) (*SMTPServer, error) {
 
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("Missing ~/.mua/send.cfg file.")
 	}
 
 	lines := strings.Split(string(b), "\n")
@@ -98,8 +101,11 @@ func NewSMTPServer(filename string) (*SMTPServer, error) {
 			} else {
 				s.tlsB = false
 			}
-
 		}
+	}
+
+	if s.name == "" || s.username == "" || s.password == "" || s.address == "" || s.port == 0 {
+		return nil, errors.New("Incorrect ~/.mua/send.cfg file.")
 	}
 	return s, nil
 }
@@ -125,7 +131,7 @@ func connectSMTP(s *SMTPServer) (*smtp.Client, error) {
 }
 
 // SendSMTP takes a SMTP server and a message, connects to the server, sends the message, and quits the connection to the server.
-func SendSMTP(server *SMTPServer, msg *Message) error {
+func sendSMTP(server *SMTPServer, msg *Message) error {
 	// connect to SMTP server
 	var c *smtp.Client
 	c, err := connectSMTP(server)
@@ -162,17 +168,48 @@ func SendSMTP(server *SMTPServer, msg *Message) error {
 	return nil
 }
 
-func main() {
+// Send interactively prompts the user for an email to send.
+func Send() {
 	// Look for a SMTPServer configuration file in ~/.mua/send.cfg
 	u, _ := user.Current()
-	s, err := NewSMTPServer(u.HomeDir + "/.mua/send.cfg")
+	srv, err := NewSMTPServer(u.HomeDir + "/.mua/send.cfg")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	m := NewMessage("danweasel@gmail.com, dan.weasel@gmail.com", "mr.k.frenata@gmail.com", "Is Anybody Out There?", []string{"Reply-To: Frenata <mr.k.frenata@gmail.com>", "Content-Type: text/plain"}, "Ground control to Major Tom!")
-	if SendSMTP(s, m) == nil {
-		fmt.Println("Message sent sucessfully!")
+	cli := bufio.NewScanner(os.Stdin)
+
+	fmt.Print("To: ")
+	cli.Scan()
+	to := cli.Text()
+	fmt.Print("From: ")
+	cli.Scan()
+	from := cli.Text()
+	fmt.Print("Subject: ")
+	cli.Scan()
+	subject := cli.Text()
+	fmt.Print("Content: ")
+
+	var content string
+	for {
+		cli.Scan()
+		line := cli.Text()
+		if line == "SEND" {
+			fmt.Println("\nSending...")
+			break
+		} else {
+			content += line + "\n"
+		}
 	}
+
+	msg := NewMessage(to, from, subject, nil, content)
+
+	if sendSMTP(srv, msg) == nil {
+		fmt.Println("Message Sent")
+	}
+}
+
+func main() {
+	Send()
 }
