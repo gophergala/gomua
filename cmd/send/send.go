@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-var configLocation = "/.gomua/send.cfg"
+const configLocation = "/.gomua/send.cfg"
 
 // Message contains critical data necessary for sending a message.
 type Message struct {
