@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
+	"net/mail"
 	"os"
 )
+
+var exitCode = 0
 
 // Header Parser (hp) takes an email message as input and returns
 //  the message's headers.
@@ -15,16 +17,20 @@ import (
 // Later, allow user to specify a filename, or directory as args.
 
 func processStdin(in io.Reader, out io.Writer) error {
-	msg, err := ioutil.ReadAll(in)
+	msg, err := mail.ReadMessage(in)
 	if err != nil {
 		return err
 	}
-	out.Write(msg)
+
+	subject := msg.Header.Get("Subject")
+	fmt.Printf("%v", subject)
 	return nil
 }
 
 func main() {
 	if err := processStdin(os.Stdin, os.Stdout); err != nil {
 		fmt.Printf("%v", err)
+		exitCode = 2
 	}
+	os.Exit(exitCode)
 }
