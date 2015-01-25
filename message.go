@@ -11,6 +11,19 @@ import (
 	"strings"
 )
 
+type Message struct {
+	mail.Message
+	Content string
+}
+
+func (m *Message) Store() {
+	b, err := ioutil.ReadAll(m.Message.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	m.Content = string(b)
+}
+
 // WriteMessage interactively prompts the user for an email to send.
 func WriteMessage(r io.Reader) *mail.Message {
 	cli := bufio.NewScanner(r)

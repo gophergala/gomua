@@ -1,8 +1,10 @@
 package gomua
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/mail"
 	"os"
 	"path/filepath"
@@ -12,12 +14,19 @@ var msgs []*mail.Message
 
 func processFile(filename string, in io.Reader, stdin bool) error {
 	if in == nil {
-		f, err := os.Open(filename)
+		b, err := ioutil.ReadFile(filename)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
-		in = f
+		in = bytes.NewReader(b)
+		/*
+			f, err := os.Open(filename)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			in = f
+		*/
 	}
 
 	msg, err := mail.ReadMessage(in)

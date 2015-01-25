@@ -2,11 +2,8 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"log"
 	"net/mail"
 	"os"
 	"strconv"
@@ -16,14 +13,24 @@ import (
 )
 
 // takes a Maildir directory, scans for messages, and returns a slice of Message structs.
-func scanMailDir(dir string) (mail []*mail.Message) {
+func scanMailDir(dir string) (msgs []*gomua.Message) {
+	mails := gomua.Scan("./testmaildir")
 
-	return mail
+	// Embed mail.Message inside gomua.Message
+	for _, m := range mails {
+		msg := new(gomua.Message)
+		msg.Message = *m
+		// permanently store the data in mail.Message.Body into gomua.Message.Content
+		msg.Store()
+		msgs = append(msgs, msg)
+	}
+
+	return msgs
 }
 
 // takes a slice of Messages and prints a numbered list of summaries
-func viewMail(mail []*mail.Message, w io.Writer) {
-	for i, m := range mail {
+func viewMail(msgs []*gomua.Message, w io.Writer) {
+	for i, m := range msgs {
 		subject := m.Header.Get("Subject")
 		from := m.Header.Get("From")
 		fmt.Fprintf(w, "%d. %s from %s\n", i+1, color(subject, "31"), color(from, "33"))
@@ -31,13 +38,12 @@ func viewMail(mail []*mail.Message, w io.Writer) {
 }
 
 // prints a single mail message to the screen
-func viewMessage(msg *mail.Message) {
+func viewMessage(msg *gomua.Message) {
 	fmt.Printf("From: %v\n", msg.Header.Get("From"))
 	fmt.Printf("To: %v\n", msg.Header.Get("To"))
 	fmt.Printf("Date: %v\n", msg.Header.Get("Date"))
 	fmt.Printf("Subject: %v\n", msg.Header.Get("Subject"))
-	body, _ := ioutil.ReadAll(msg.Body)
-	fmt.Printf("\n%v", string(body))
+	fmt.Printf("\n%s\n", msg.Content)
 }
 
 // (to be invoked from viewMessage with a keypress, most likely)
@@ -48,7 +54,7 @@ func viewMessage(msg *mail.Message) {
 // put old's Subject in reply's subject as "RE: Subject" (but allow user to edit? -- later)
 // prompt user for content
 // send reply
-func replyMessage(old *mail.Message) (reply *mail.Message) {
+func replyMessage(old *gomua.Message) (reply *mail.Message) {
 	//id := "121212"                             // should be parsed from old by hp.go eventually
 	//oldref := ""                               // ditto
 	//from := "Frenata <mr.k.frenata@gmail.com>" // mua.cfg for sending email address?
@@ -74,7 +80,7 @@ func color(s string, color string) string {
 }
 
 // user input loop
-func input(mails []*mail.Message, exit chan bool) {
+func input(mails []*gomua.Message, exit chan bool) {
 	cli := bufio.NewScanner(os.Stdin)
 	for {
 		cli.Scan()
@@ -105,28 +111,14 @@ func input(mails []*mail.Message, exit chan bool) {
 }
 
 func main() {
-	//mails := fakeMailDir()
-	mails := gomua.Scan("./testmaildir")
-	viewMail(mails, os.Stdout)
+	//mails := gomua.Scan("./testmaildir")
+
+	msgs := scanMailDir("./testmaildir")
+	viewMail(msgs, os.Stdout)
 
 	exit := make(chan bool, 1)
-	go input(mails, exit)
+	go input(msgs, exit)
 
 	<-exit
 	os.Exit(2)
-}
-
-// a list of static Messages for testing view
-func fakeMailDir() (mails []*mail.Message) {
-	b, err := ioutil.ReadFile("m1.mail")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	m1, err := mail.ReadMessage(bytes.NewReader(b))
-	if err != nil {
-		log.Fatal(err)
-	}
-	mails = append(mails, m1)
-	return mails
 }
