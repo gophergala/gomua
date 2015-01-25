@@ -49,21 +49,22 @@ func Thread(msgs []Mail) []Mail {
 	// take a slice of mails
 	// make a hash table keyed off of subject for now
 
-	thread := new(MessageThread)
+	//thread := new(MessageThread)
 	// thread them!
 	for i, m := range msgs {
 		// check the subject -- if we've seen it, put it in the list
-		fmt.Printf("test: %d %v", i, m.Summary())
 		node := new(ThreadNode)
-		node.msg = m
+		node.msg = m.(*Message)
 		if threads[m.Summary()] == nil {
+			fmt.Printf("New thread (%d): '%v'\n", i, m.Summary())
+			thread := new(MessageThread)
+			thread.head = m
 			threads[m.Summary()] = thread
 		} else {
-
+			threads[m.Summary()] =
+				fmt.Printf("Add to thread (%d): '%v'\n", i, m.Summary())
 			thread.appendNode(node)
 		}
-		//fmt.Printf("%d. %s\n", i+1, m.Summary())
 	}
-	fmt.Printf("Hello\n\n")
 	return msgs
 }
