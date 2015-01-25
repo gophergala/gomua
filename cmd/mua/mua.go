@@ -2,8 +2,10 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"net/mail"
 	"os"
 	"strconv"
@@ -14,7 +16,7 @@ import (
 
 // takes a Maildir directory, scans for messages, and returns a slice of Message structs.
 func scanMailDir(dir string) (msgs []*gomua.Message) {
-	mails := gomua.Scan("./testmaildir")
+	mails := gomua.Scan(dir)
 
 	// Embed mail.Message inside gomua.Message
 	for _, m := range mails {
@@ -55,22 +57,38 @@ func viewMessage(msg *gomua.Message) {
 // prompt user for content
 // send reply
 func replyMessage(old *gomua.Message) (reply *mail.Message) {
-	//id := "121212"                             // should be parsed from old by hp.go eventually
-	//oldref := ""                               // ditto
-	//from := "Frenata <mr.k.frenata@gmail.com>" // mua.cfg for sending email address?
+	oldid := old.Header.Get("Message-ID")
+	oldref := old.Header.Get("References")
+	//oldfrom := old.Header.AddressList("From")
 
-	//subject := fmt.Sprintf("RE: %s", old.Header.Get("Subject"))
-	//inreplyto := fmt.Sprintf("In-Reply-To: %s", id)
-	//references := fmt.Sprintf("References: %s%s", oldref, id)
-	//headers := []string{inreplyto, references}
+	to := "To: " + old.Header.Get("From") + "\r\n"
+	from := "From: mr.k.frenata@gmail.com\r\n"
 
-	content := gomua.WriteContent(os.Stdin)
+	subject := fmt.Sprintf("Subject: RE: %s\r\n", old.Header.Get("Subject"))
+	inreplyto := fmt.Sprintf("In-Reply-To: %s\r\n", oldid)
+	references := fmt.Sprintf("References: %s%s\r\n", oldref, oldid)
+
+	content := "\r\n\r\n" + gomua.WriteContent(os.Stdin)
 	quote := bufio.NewScanner(old.Body)
 	for quote.Scan() {
 		content += "\n" + "> " + quote.Text()
 	}
 
-	//reply = gomua.NewMessage(old.From(), from, subject, headers, content)
+	buf := bytes.NewBufferString(inreplyto)
+	buf.WriteString(references)
+	buf.WriteString(to)
+	buf.WriteString(from)
+	buf.WriteString(subject)
+	buf.WriteString(content)
+
+	/*var err error
+	m, err := mail.ReadMessage(bytes.NewReader(buf.Bytes()))
+	reply = new(gomua.Message)
+	reply.Message = *m */
+	reply, err := mail.ReadMessage(bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		log.Fatal(err)
+	}
 	return reply
 }
 
@@ -96,6 +114,8 @@ func input(mails []*gomua.Message, exit chan bool) {
 			}
 			reply := replyMessage(mails[num-1])
 			gomua.Send(reply)
+			//viewMessage(reply)
+			//gomua.Send(&reply.Message)
 		case input == "exit", input == "x", input == "quit", input == "q":
 			exit <- true
 		case strings.ContainsAny(input, "01234566789"):
@@ -111,9 +131,9 @@ func input(mails []*gomua.Message, exit chan bool) {
 }
 
 func main() {
-	//mails := gomua.Scan("./testmaildir")
+	const dir string = "test" // ./testmaildir"
 
-	msgs := scanMailDir("./testmaildir")
+	msgs := scanMailDir(dir)
 	viewMail(msgs, os.Stdout)
 
 	exit := make(chan bool, 1)

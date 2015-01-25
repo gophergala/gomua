@@ -44,7 +44,6 @@ func WriteMessage(r io.Reader) *mail.Message {
 		"To: %v\r\nFrom: %v\r\nSubject: %v\r\n\r\n%v",
 		to, from, subject, content)
 
-	Save("test.mail", msg)
 	m, err := mail.ReadMessage(strings.NewReader(msg))
 	if err != nil {
 		log.Fatal(err)
