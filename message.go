@@ -35,7 +35,7 @@ func ReadMessage(msg *mail.Message) *Message {
 	return m
 }
 
-func (m *Message) Seen() {
+func (m *Message) Flag(flag string) {
 	s := strings.Split(m.Filename, ":2")
 	if len(s) != 2 {
 		log.Fatal(fmt.Errorf("filename %s does not contain ':2'", m.Filename))
@@ -43,14 +43,15 @@ func (m *Message) Seen() {
 	name := s[0]
 	flags := s[1]
 
-	if !strings.Contains(flags, "S") {
+	if !strings.Contains(flags, flag) {
 		if flags[len(flags)-1] != ',' {
 			flags += ","
 		}
-		flags += "S"
+		flags += flag
 
 		newname := name + ":2" + flags
 		os.Rename(m.Filename, newname)
+		m.Filename = newname
 	}
 }
 

@@ -81,6 +81,7 @@ func (c *client) scanMailDir(dir string) {
 		root := strings.TrimRight(folder, "/new/")          // slice off the expected "/new/" from the path to get the root Maildir
 		newname := filepath.Join(root, "cur", name) + ":2," // now add /cur/ to the root and the base name and the processed flag
 		err := os.Rename(m.Filename, newname)               // finally move the file to the new name as calculated above
+		m.Filename = newname
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -108,7 +109,7 @@ func viewMail(msg gomua.Mail, w io.Writer) {
 
 	switch m := msg.(type) {
 	case *gomua.Message:
-		m.Seen()
+		m.Flag("S")
 	}
 }
 
@@ -179,8 +180,10 @@ func (c *client) input(exit chan bool) {
 			if err != nil {
 				fmt.Println(err)
 			}
-			reply := replyMessage(c.messages[num-1].(*gomua.Message), c.user)
+			old := c.messages[num-1].(*gomua.Message)
+			reply := replyMessage(old, c.user)
 			gomua.Send(reply)
+			old.Flag("R")
 		case input == "exit", input == "x", input == "quit", input == "q":
 			exit <- true
 		case strings.ContainsAny(input, "01234566789"):
