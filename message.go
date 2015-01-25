@@ -2,8 +2,10 @@ package gomua
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/mail"
 	"time"
 )
@@ -102,4 +104,10 @@ func WriteMessage(r io.Reader) *Message {
 	msg := NewMessage(to, from, subject, nil, content)
 	msg.AddHeader("Content-Type: text/plain; charset=UTF-8")
 	return msg
+}
+
+// Save writes the message to a file.
+func (m *Message) Save(file string) error {
+	b := bytes.NewBufferString(m.String()).Bytes()
+	return ioutil.WriteFile(file, b, 0660)
 }
