@@ -69,7 +69,7 @@ func replyMessage(old *gomua.Message) (reply *mail.Message) {
 	references := fmt.Sprintf("References: %s%s\r\n", oldref, oldid)
 
 	content := "\r\n\r\n" + gomua.WriteContent(os.Stdin)
-	quote := bufio.NewScanner(old.Body)
+	quote := bufio.NewScanner(strings.NewReader(old.Content))
 	for quote.Scan() {
 		content += "\n" + "> " + quote.Text()
 	}
@@ -131,7 +131,7 @@ func input(mails []*gomua.Message, exit chan bool) {
 }
 
 func main() {
-	const dir string = "test" // ./testmaildir"
+	const dir string = "./testmaildir"
 
 	msgs := scanMailDir(dir)
 	viewMail(msgs, os.Stdout)
