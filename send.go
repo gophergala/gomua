@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const configLocation = "/.gomua/send.cfg"
+const ConfigLocation = "~/.gomua/gomua.cfg"
 
 // SMTPServer describes a connection to an SMTP server for sending mail.
 type SMTPServer struct {
@@ -32,11 +32,18 @@ func NewSMTPServer(filename string) (*SMTPServer, error) {
 
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, errors.New("Missing ~/.gomua/send.cfg file.")
+		return nil, errors.New("SMTP: missing " + ConfigLocation + " file.")
 	}
 
-	lines := strings.Split(string(b), "\n")
+	var smtp string
+	sections := strings.Split(string(b), "[")
+	for _, sec := range sections {
+		if strings.HasPrefix(sec, "smtp]") {
+			smtp = "[" + sec
+		}
+	}
 
+	lines := strings.Split(smtp, "\n")
 	for _, l := range lines {
 		switch {
 		case strings.HasPrefix(l, "Name="):
@@ -60,7 +67,7 @@ func NewSMTPServer(filename string) (*SMTPServer, error) {
 	}
 
 	if s.name == "" || s.username == "" || s.password == "" || s.address == "" || s.port == 0 {
-		return nil, errors.New("Incorrect ~/.mua/send.cfg file.")
+		return nil, errors.New("SMTP: incorrect " + ConfigLocation + " file.")
 	}
 	return s, nil
 }
@@ -153,7 +160,7 @@ func sendSMTP(server *SMTPServer, msg *mail.Message) error {
 func Send(msg *mail.Message) {
 	// Look for a SMTPServer configuration file in ~/.gomua/send.cfg
 	u, _ := user.Current()
-	srv, err := NewSMTPServer(u.HomeDir + configLocation)
+	srv, err := NewSMTPServer(u.HomeDir + ConfigLocation[1:])
 	if err != nil {
 		fmt.Println(err)
 		return

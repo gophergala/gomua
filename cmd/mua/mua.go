@@ -3,11 +3,14 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/mail"
 	"os"
+	"os/user"
 	"strconv"
 	"strings"
 
@@ -24,6 +27,44 @@ type client struct {
 	current  gomua.Mail
 	displayN int
 	user     string
+	dir      string
+}
+
+// reads from the config file, creates a new client
+func NewClient(filename string) (*client, error) {
+	c := new(client)
+
+	// TODO: much of the following is duplicated from send.go, refactor
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, errors.New("Client: missing " + gomua.ConfigLocation + " file.")
+	}
+
+	var client string
+	sections := strings.Split(string(b), "[")
+	for _, sec := range sections {
+		if strings.HasPrefix(sec, "client]") {
+			client = "[" + sec
+		}
+	}
+
+	lines := strings.Split(client, "\n")
+	for _, l := range lines {
+		switch {
+		case strings.HasPrefix(l, "Maildir="):
+			c.dir = strings.TrimPrefix(l, "Maildir=")
+		case strings.HasPrefix(l, "DisplayN="):
+			c.displayN, _ = strconv.Atoi(strings.TrimPrefix(l, "DisplayN="))
+		case strings.HasPrefix(l, "User="):
+			c.user = strings.TrimPrefix(l, "User=")
+		}
+	}
+
+	if c.dir == "" || c.user == "" || c.displayN == 0 {
+		return nil, errors.New("Client: incorrect " + gomua.ConfigLocation + " file.")
+	}
+
+	return c, nil
 }
 
 // takes a Maildir directory, scans for messages, and returns a slice of Message structs.
@@ -52,14 +93,7 @@ func viewMail(msg gomua.Mail, w io.Writer) {
 	fmt.Fprint(w, msg)
 }
 
-// (to be invoked from viewMessage with a keypress, most likely)
-// create a new message:
-// put old's Message-ID into reply's In-Reply-To and References headers
-// put old's content as quoted material in reply
-// put old's From as the reply's To
-// put old's Subject in reply's subject as "RE: Subject" (but allow user to edit? -- later)
-// prompt user for content
-// send reply
+// prompts the user for the response content, and sends a reply to the mail
 func replyMessage(old *gomua.Message, user string) (reply *mail.Message) {
 	oldid := old.Header.Get("Message-ID")
 	oldref := old.Header.Get("References")
@@ -143,11 +177,12 @@ func (c *client) input(exit chan bool) {
 }
 
 func main() {
-	// TODO: read from config? or command line arg?
-	const dir string = "./testmaildir"
-
-	client := &client{displayN: 25, user: "Frenata <mr.k.frenata@gmail.com>"}
-	client.scanMailDir(dir)
+	u, _ := user.Current()
+	client, err := NewClient(u.HomeDir + gomua.ConfigLocation[1:])
+	if err != nil {
+		log.Fatal(err)
+	}
+	client.scanMailDir(client.dir)
 
 	exit := make(chan bool, 1)
 	go client.input(exit)
