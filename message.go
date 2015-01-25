@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/mail"
+	"os"
 	"strings"
 )
 
@@ -32,6 +33,25 @@ func ReadMessage(msg *mail.Message) *Message {
 	m.store()
 
 	return m
+}
+
+func (m *Message) Seen() {
+	s := strings.Split(m.Filename, ":2")
+	if len(s) != 2 {
+		log.Fatal(fmt.Errorf("filename %s does not contain ':2'", m.Filename))
+	}
+	name := s[0]
+	flags := s[1]
+
+	if !strings.Contains(flags, "S") {
+		if flags[len(flags)-1] != ',' {
+			flags += ","
+		}
+		flags += "S"
+
+		newname := name + ":2" + flags
+		os.Rename(m.Filename, newname)
+	}
 }
 
 // WriteMessage interactively prompts the user for an email to send.

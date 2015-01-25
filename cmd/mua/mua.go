@@ -77,18 +77,19 @@ func (c *client) scanMailDir(dir string) {
 	curmail := gomua.Scan(dir + "cur/")
 
 	for _, m := range newmail {
-		folder, name := filepath.Split(m.Filename)
-		root := strings.TrimRight(folder, "/new/")
-		newname := filepath.Join(root, "cur", name) + ":2,"
-		err := os.Rename(m.Filename, newname)
+		folder, name := filepath.Split(m.Filename)          // grab the base name and the path leading to it
+		root := strings.TrimRight(folder, "/new/")          // slice off the expected "/new/" from the path to get the root Maildir
+		newname := filepath.Join(root, "cur", name) + ":2," // now add /cur/ to the root and the base name and the processed flag
+		err := os.Rename(m.Filename, newname)               // finally move the file to the new name as calculated above
 		if err != nil {
 			log.Fatal(err)
 		}
+		// TODO: I have *absolutely* no idea why the following line isn't necessary...
 		//msgs = append(msgs, m)
 	}
 
-	for _, m := range curmail {
-		msgs = append(msgs, m)
+	for _, cm := range curmail {
+		msgs = append(msgs, cm)
 	}
 
 	c.messages = msgs
@@ -104,6 +105,11 @@ func viewMailList(msgs []gomua.Mail, start int, w io.Writer) {
 // prints a single mail message to the screen
 func viewMail(msg gomua.Mail, w io.Writer) {
 	fmt.Fprint(w, msg)
+
+	switch m := msg.(type) {
+	case *gomua.Message:
+		m.Seen()
+	}
 }
 
 // prompts the user for the response content, and sends a reply to the mail
