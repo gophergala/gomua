@@ -178,12 +178,16 @@ func (c *client) printList(start, end int) (newstart int, newend int) {
 // user input loop
 func (c *client) input(exit chan bool) {
 	var start, end int
+
+	fmt.Println("\n\nWelcome to GoMUA! Type 'help' for help.\n")
 	cli := bufio.NewScanner(os.Stdin)
 	for {
 		cli.Scan()
 		input := cli.Text()
 
 		switch {
+		case input == "help", input == "h":
+			fmt.Println(help())
 		case input == "main", input == "view":
 			start = 0
 			start, end = c.printList(start, end)
@@ -212,6 +216,18 @@ func (c *client) input(exit chan bool) {
 	exit <- true
 }
 
+func help() string {
+	output := fmt.Sprint(
+		"  help                 prints this help\n",
+		"  main                 view the list of mail in your mailbox\n",
+		"  more                 prints more mail listings, if not all were printed previously\n",
+		"  #                    prints the details of the message #\n",
+		"  reply #              prompts for the text of your reply the message #, then sends it\n",
+		"  exit                 exits the program\n")
+
+	return output
+}
+
 func main() {
 	u, _ := user.Current()
 	client, err := NewClient(u.HomeDir + gomua.ConfigLocation[1:])
@@ -222,7 +238,6 @@ func main() {
 
 	exit := make(chan bool, 1)
 	go client.input(exit)
-
 	<-exit
 	os.Exit(2)
 }
