@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"os"
 	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -70,11 +71,23 @@ func NewClient(filename string) (*client, error) {
 // takes a Maildir directory, scans for messages, and returns a slice of Message structs.
 func (c *client) scanMailDir(dir string) {
 	var msgs []gomua.Mail
-	mails := gomua.Scan(dir)
 
-	// Embed mail.Message inside gomua.Message
-	for _, m := range mails {
-		//msg := gomua.ReadMessage(m)
+	// scan new and cur folder
+	newmail := gomua.Scan(dir + "new/")
+	curmail := gomua.Scan(dir + "cur/")
+
+	for _, m := range newmail {
+		folder, name := filepath.Split(m.Filename)
+		root := strings.TrimRight(folder, "/new/")
+		newname := filepath.Join(root, "cur", name) + ":2,"
+		err := os.Rename(m.Filename, newname)
+		if err != nil {
+			log.Fatal(err)
+		}
+		//msgs = append(msgs, m)
+	}
+
+	for _, m := range curmail {
 		msgs = append(msgs, m)
 	}
 
