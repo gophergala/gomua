@@ -38,7 +38,6 @@ func viewMessage(msg *mail.Message) {
 	fmt.Printf("Subject: %v\n", msg.Header.Get("Subject"))
 	body, _ := ioutil.ReadAll(msg.Body)
 	fmt.Printf("\n%v", string(body))
-	//fmt.Println(msg) // probably will not work, sinc ethere is no String() string for mail.Message
 }
 
 // (to be invoked from viewMessage with a keypress, most likely)
@@ -90,8 +89,7 @@ func input(mails []*mail.Message, exit chan bool) {
 				fmt.Println(err)
 			}
 			reply := replyMessage(mails[num-1])
-			_ = reply
-			//gomua.Send(reply)
+			gomua.Send(reply)
 		case input == "exit", input == "x", input == "quit", input == "q":
 			exit <- true
 		case strings.ContainsAny(input, "01234566789"):
