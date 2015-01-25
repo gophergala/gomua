@@ -16,12 +16,20 @@ type Message struct {
 	Content string
 }
 
-func (m *Message) Store() {
+func (m *Message) store() {
 	b, err := ioutil.ReadAll(m.Message.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
 	m.Content = string(b)
+}
+
+func ReadMessage(msg *mail.Message) *Message {
+	m := new(Message)
+	m.Message = *msg
+	m.store()
+
+	return m
 }
 
 // WriteMessage interactively prompts the user for an email to send.
