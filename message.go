@@ -24,6 +24,7 @@ func (m *Message) store() {
 	m.Content = string(b)
 }
 
+// ReadMessage embeds a mail.Message inside the gomua.Message and stores the Body content
 func ReadMessage(msg *mail.Message) *Message {
 	m := new(Message)
 	m.Message = *msg
