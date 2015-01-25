@@ -6,77 +6,26 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/mail"
-	"time"
+	"strings"
 )
 
-// Message contains critical data necessary for readding/sending a message.
 type Message struct {
-	to      []*mail.Address
-	from    *mail.Address
-	date    time.Time
-	subject string
-	headers []string
-	content string
+	mail.Message
+	Content string
 }
 
-// NewMessage takes strings that specify the recipients, the sender, the subject, a slice of other email header values, and the content of an email.
-func NewMessage(to, from, subject string, headers []string, content string) *Message {
-	m := new(Message)
-	m.to, _ = mail.ParseAddressList(to)
-	m.from, _ = mail.ParseAddress(from)
-	m.subject = subject
-	m.headers = headers
-	m.content = content
-
-	return m
-}
-
-// Strings pretty prints Message, with just the standard headers.
-func (m *Message) String() string {
-	return fmt.Sprintf(
-		"From: %s\nTo: %s\nDate: %v\nSubject: %s\n\n%s\n",
-		m.From(), m.To(), m.Date(), m.Subject(), m.Content())
-}
-
-func (m *Message) Subject() string        { return m.subject }
-func (m *Message) Content() string        { return m.content }
-func (m *Message) Date() string           { return m.date.Format(time.RFC822) }
-func (m *Message) SetDate(date time.Time) { m.date = date }
-
-func (m *Message) From() string {
-	if m.from != nil {
-		return m.from.String()
-	} else {
-		return ""
+func (m *Message) Store() {
+	b, err := ioutil.ReadAll(m.Message.Body)
+	if err != nil {
+		log.Fatal(err)
 	}
-}
-
-// Outputs the list of parsed addresses back into a single string for appending to the email.
-func (m *Message) To() (output string) {
-	for i, f := range m.to {
-		output += f.String()
-		if len(m.to)-1 > i {
-			output += ","
-		}
-	}
-	return output
-}
-
-// Writes the slice of headers one on each line.
-func (m *Message) Headers() (output string) {
-	for _, h := range m.headers {
-		output += h + "\n"
-	}
-	return output
-}
-
-func (m *Message) AddHeader(header string) {
-	m.headers = append(m.headers, header)
+	m.Content = string(b)
 }
 
 // WriteMessage interactively prompts the user for an email to send.
-func WriteMessage(r io.Reader) *Message {
+func WriteMessage(r io.Reader) *mail.Message {
 	cli := bufio.NewScanner(r)
 
 	fmt.Print("To: ")
@@ -90,9 +39,16 @@ func WriteMessage(r io.Reader) *Message {
 	subject := cli.Text()
 	content := WriteContent(r)
 
-	msg := NewMessage(to, from, subject, nil, content)
-	msg.AddHeader("Content-Type: text/plain; charset=UTF-8")
-	return msg
+	msg := "Content-Type: text/plain; charset=UTF-8\r\n"
+	msg += fmt.Sprintf(
+		"To: %v\r\nFrom: %v\r\nSubject: %v\r\n\r\n%v",
+		to, from, subject, content)
+
+	m, err := mail.ReadMessage(strings.NewReader(msg))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return m
 }
 
 func WriteContent(r io.Reader) string {
@@ -112,8 +68,8 @@ func WriteContent(r io.Reader) string {
 	return content
 }
 
-// Save writes the message to a file.
-func (m *Message) Save(file string) error {
-	b := bytes.NewBufferString(m.String()).Bytes()
-	return ioutil.WriteFile(file, b, 0660)
+func Save(file string, m string) error {
+	b := bytes.NewBufferString(m).Bytes()
+	ioutil.WriteFile(file, b, 0600)
+	return nil
 }

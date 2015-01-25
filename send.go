@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/mail"
 	"net/smtp"
 	"os/user"
 	"strconv"
@@ -85,7 +86,7 @@ func connectSMTP(s *SMTPServer) (*smtp.Client, error) {
 }
 
 // SendSMTP takes a SMTP server and a message, connects to the server, sends the message, and quits the connection to the server.
-func sendSMTP(server *SMTPServer, msg *Message) error {
+func sendSMTP(server *SMTPServer, msg *mail.Message) error {
 	// connect to SMTP server
 	var c *smtp.Client
 	c, err := connectSMTP(server)
@@ -94,18 +95,22 @@ func sendSMTP(server *SMTPServer, msg *Message) error {
 	}
 	defer c.Quit()
 
-	// Set sender and receiver
-	var from string
-	if msg.from == nil {
-		from = server.username
+	from, _ := msg.Header.AddressList("From")
+	if len(from) != 0 {
+		for _, t := range from {
+			if err := c.Mail(t.Address); err != nil {
+				log.Fatal(err)
+			}
+		}
 	} else {
-		from = msg.from.Address
-	}
-	if err := c.Mail(from); err != nil {
-		log.Fatal(err)
+		if err := c.Mail(server.username); err != nil {
+			log.Fatal(err)
+		}
+
 	}
 
-	for _, t := range msg.to {
+	to, _ := msg.Header.AddressList("To")
+	for _, t := range to {
 		if err := c.Rcpt(t.Address); err != nil {
 			log.Fatal(err)
 		}
@@ -116,9 +121,23 @@ func sendSMTP(server *SMTPServer, msg *Message) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	msg.SetDate(time.Now().Local())
-	_, err = fmt.Fprint(wc, msg.Headers())
-	_, err = fmt.Fprint(wc, msg.String())
+
+	fmt.Fprintf(wc, "Date: %v\r\n", time.Now().Local().Format(time.RFC822))
+	for key, heads := range msg.Header {
+		fmt.Fprintf(wc, "%s: ", key)
+		for i, h := range heads {
+			fmt.Fprint(wc, h)
+			if len(heads)-1 > i {
+				fmt.Fprint(wc, ",")
+			}
+
+		}
+		fmt.Fprint(wc, "\r\n")
+	}
+
+	body, _ := ioutil.ReadAll(msg.Body)
+
+	_, err = fmt.Fprintf(wc, "\n%s\n", body)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -131,7 +150,7 @@ func sendSMTP(server *SMTPServer, msg *Message) error {
 }
 
 // Send opens a new SMTP server connection from the config file and sends a message.
-func Send(msg *Message) {
+func Send(msg *mail.Message) {
 	// Look for a SMTPServer configuration file in ~/.gomua/send.cfg
 	u, _ := user.Current()
 	srv, err := NewSMTPServer(u.HomeDir + configLocation)
