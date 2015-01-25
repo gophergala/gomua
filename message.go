@@ -35,6 +35,7 @@ func ReadMessage(msg *mail.Message) *Message {
 	return m
 }
 
+// Flag sets a filename flag on the message.
 func (m *Message) Flag(flag string) {
 	s := strings.Split(m.Filename, ":2")
 	if len(s) != 2 {
@@ -53,6 +54,22 @@ func (m *Message) Flag(flag string) {
 		os.Rename(m.Filename, newname)
 		m.Filename = newname
 	}
+}
+
+// IsFlagged checks if the filename of the message is flagged with the given flag.
+func (m *Message) IsFlagged(flag string) bool {
+	s := strings.Split(m.Filename, ":2")
+	if len(s) != 2 {
+		log.Fatal(fmt.Errorf("filename %s does not contain ':2'", m.Filename))
+	}
+	flags := s[1]
+
+	return strings.Contains(flags, flag)
+}
+
+// Unread returns true if the message is unread.
+func (m *Message) Unread() bool {
+	return !m.IsFlagged("S")
 }
 
 // WriteMessage interactively prompts the user for an email to send.

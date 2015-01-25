@@ -98,8 +98,17 @@ func (c *client) scanMailDir(dir string) {
 
 // takes a slice of Messages and prints a numbered list of summaries
 func viewMailList(msgs []gomua.Mail, start int, w io.Writer) {
-	for i, m := range msgs {
-		fmt.Fprintf(w, "%d. %s\n", i+start+1, m.Summary())
+	var unread string
+	for i, msg := range msgs {
+		switch m := msg.(type) {
+		case *gomua.Message:
+			if m.Unread() {
+				unread = color("(Unread) ", "34")
+			} else {
+				unread = ""
+			}
+		}
+		fmt.Fprintf(w, "%d. %s%s\n", i+start+1, unread, msg.Summary())
 	}
 }
 
