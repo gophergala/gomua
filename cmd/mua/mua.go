@@ -20,10 +20,7 @@ func scanMailDir(dir string) (msgs []*gomua.Message) {
 
 	// Embed mail.Message inside gomua.Message
 	for _, m := range mails {
-		msg := new(gomua.Message)
-		msg.Message = *m
-		// permanently store the data in mail.Message.Body into gomua.Message.Content
-		msg.Store()
+		msg := gomua.ReadMessage(m)
 		msgs = append(msgs, msg)
 	}
 
@@ -59,9 +56,9 @@ func viewMessage(msg *gomua.Message) {
 func replyMessage(old *gomua.Message) (reply *mail.Message) {
 	oldid := old.Header.Get("Message-ID")
 	oldref := old.Header.Get("References")
-	//oldfrom := old.Header.AddressList("From")
 
 	to := "To: " + old.Header.Get("From") + "\r\n"
+	// TODO: pull from config?
 	from := "From: mr.k.frenata@gmail.com\r\n"
 
 	subject := fmt.Sprintf("Subject: RE: %s\r\n", old.Header.Get("Subject"))
@@ -81,10 +78,6 @@ func replyMessage(old *gomua.Message) (reply *mail.Message) {
 	buf.WriteString(subject)
 	buf.WriteString(content)
 
-	/*var err error
-	m, err := mail.ReadMessage(bytes.NewReader(buf.Bytes()))
-	reply = new(gomua.Message)
-	reply.Message = *m */
 	reply, err := mail.ReadMessage(bytes.NewReader(buf.Bytes()))
 	if err != nil {
 		log.Fatal(err)
@@ -131,6 +124,7 @@ func input(mails []*gomua.Message, exit chan bool) {
 }
 
 func main() {
+	// TODO: read from config? or command line arg?
 	const dir string = "./testmaildir"
 
 	msgs := scanMailDir(dir)
