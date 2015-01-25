@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"os"
 	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -70,12 +71,26 @@ func NewClient(filename string) (*client, error) {
 // takes a Maildir directory, scans for messages, and returns a slice of Message structs.
 func (c *client) scanMailDir(dir string) {
 	var msgs []gomua.Mail
-	mails := gomua.Scan(dir)
 
-	// Embed mail.Message inside gomua.Message
-	for _, m := range mails {
-		msg := gomua.ReadMessage(m)
-		msgs = append(msgs, msg)
+	// scan new and cur folder
+	newmail := gomua.Scan(dir + "new/")
+	curmail := gomua.Scan(dir + "cur/")
+
+	for _, m := range newmail {
+		folder, name := filepath.Split(m.Filename)          // grab the base name and the path leading to it
+		root := strings.TrimRight(folder, "/new/")          // slice off the expected "/new/" from the path to get the root Maildir
+		newname := filepath.Join(root, "cur", name) + ":2," // now add /cur/ to the root and the base name and the processed flag
+		err := os.Rename(m.Filename, newname)               // finally move the file to the new name as calculated above
+		m.Filename = newname
+		if err != nil {
+			log.Fatal(err)
+		}
+		// TODO: I have *absolutely* no idea why the following line isn't necessary...
+		//msgs = append(msgs, m)
+	}
+
+	for _, cm := range curmail {
+		msgs = append(msgs, cm)
 	}
 
 	c.messages = msgs
@@ -91,6 +106,11 @@ func viewMailList(msgs []gomua.Mail, start int, w io.Writer) {
 // prints a single mail message to the screen
 func viewMail(msg gomua.Mail, w io.Writer) {
 	fmt.Fprint(w, msg)
+
+	switch m := msg.(type) {
+	case *gomua.Message:
+		m.Flag("S")
+	}
 }
 
 // prompts the user for the response content, and sends a reply to the mail
@@ -160,8 +180,10 @@ func (c *client) input(exit chan bool) {
 			if err != nil {
 				fmt.Println(err)
 			}
-			reply := replyMessage(c.messages[num-1].(*gomua.Message), c.user)
+			old := c.messages[num-1].(*gomua.Message)
+			reply := replyMessage(old, c.user)
 			gomua.Send(reply)
+			old.Flag("R")
 		case input == "exit", input == "x", input == "quit", input == "q":
 			exit <- true
 		case strings.ContainsAny(input, "01234566789"):

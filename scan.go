@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 )
 
-var msgs []*mail.Message
+var msgs []*Message
 
 func processFile(filename string, in io.Reader, stdin bool) error {
 	if in == nil {
@@ -29,7 +29,13 @@ func processFile(filename string, in io.Reader, stdin bool) error {
 		*/
 	}
 
-	msg, err := mail.ReadMessage(in)
+	m, err := mail.ReadMessage(in)
+	if err != nil {
+		return err
+	}
+
+	msg := ReadMessage(m)
+	msg.Filename, err = filepath.Abs(filename)
 	if err != nil {
 		return err
 	}
@@ -52,7 +58,7 @@ func walkDir(path string) {
 	filepath.Walk(path, visitFile)
 }
 
-func Scan(path string) []*mail.Message {
+func Scan(path string) []*Message {
 	switch dir, err := os.Stat(path); {
 	case err != nil:
 		fmt.Printf("%s", err)
