@@ -72,6 +72,42 @@ func (m *Message) Unread() bool {
 	return !m.IsFlagged("S")
 }
 
+// SanitizeContent returns only text/plain content portions of the email.
+// --Probably not fully working.--
+func (m *Message) SanitizeContent() string {
+	var bound string
+	var boundB bool = false
+	t := m.Header.Get("Content-Type")
+	if strings.Contains(t, "boundary=") {
+		bs := strings.Split(t, "boundary=")
+		bound = "--" + bs[1]
+		boundB = true
+	}
+
+	raw := bufio.NewScanner(strings.NewReader(m.Content))
+	buf := new(bytes.Buffer)
+	var write bool = true
+	for raw.Scan() {
+		line := raw.Text()
+		if strings.Contains(line, "Content-Type:") {
+			write = false
+		}
+
+		if !strings.Contains(line, "Content-Transfer-Encoding") {
+			if !boundB || boundB && line != bound {
+				if write {
+					buf.WriteString(line + "\r\n")
+				}
+			}
+		}
+
+		if strings.Contains(line, "Content-Type: text/plain") {
+			write = true
+		}
+	}
+	return string(buf.Bytes())
+}
+
 // WriteMessage interactively prompts the user for an email to send.
 func WriteMessage(r io.Reader) *mail.Message {
 	cli := bufio.NewScanner(r)

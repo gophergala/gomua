@@ -135,9 +135,14 @@ func replyMessage(old *gomua.Message, user string) (reply *mail.Message) {
 	references := fmt.Sprintf("References: %s%s\r\n", oldref, oldid)
 
 	content := "\r\n\r\n" + gomua.WriteContent(os.Stdin)
-	quote := bufio.NewScanner(strings.NewReader(old.Content))
+	quote := bufio.NewScanner(strings.NewReader(old.SanitizeContent()))
 	for quote.Scan() {
-		content += "\n" + "> " + quote.Text()
+		line := quote.Text()
+		token := "> "
+		if line != "" && line[0] == '>' {
+			token = ">"
+		}
+		content += "\n" + token + line
 	}
 
 	buf := bytes.NewBufferString(inreplyto)
