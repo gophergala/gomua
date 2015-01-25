@@ -14,8 +14,21 @@ import (
 	"github.com/gophergala/gomua"
 )
 
+// client handles common data as a user navigates the MUA.
+// messages is the list of all mail (in the current folder?)
+// current is the currently selected Mail
+// displayN is the # of Mail to display on the screen at one time.
+// user is the user's email address, for sending.
+type client struct {
+	messages []gomua.Mail
+	current  gomua.Mail
+	displayN int
+	user     string
+}
+
 // takes a Maildir directory, scans for messages, and returns a slice of Message structs.
-func scanMailDir(dir string) (msgs []gomua.Mail) {
+func (c *client) scanMailDir(dir string) {
+	var msgs []gomua.Mail
 	mails := gomua.Scan(dir)
 
 	// Embed mail.Message inside gomua.Message
@@ -24,13 +37,13 @@ func scanMailDir(dir string) (msgs []gomua.Mail) {
 		msgs = append(msgs, msg)
 	}
 
-	return msgs
+	c.messages = msgs
 }
 
 // takes a slice of Messages and prints a numbered list of summaries
-func viewMailList(msgs []gomua.Mail, w io.Writer) {
+func viewMailList(msgs []gomua.Mail, start int, w io.Writer) {
 	for i, m := range msgs {
-		fmt.Fprintf(w, "%d. %s\n", i+1, m.Summary())
+		fmt.Fprintf(w, "%d. %s\n", i+start+1, m.Summary())
 	}
 }
 
@@ -84,31 +97,44 @@ func color(s string, color string) string {
 	return "\033[" + color + "m" + s + "\033[0m"
 }
 
+// helper func to check that view doesn't overflow []. Returns end.
+func (c *client) printList(start, end int) (newstart int, newend int) {
+	if end = start + c.displayN; end > len(c.messages) {
+		end = len(c.messages)
+	}
+	m := c.messages[start:end]
+	viewMailList(m, start, os.Stdout)
+	start = end
+	return start, end
+}
+
 // user input loop
-func input(mails []gomua.Mail, exit chan bool) {
+func (c *client) input(exit chan bool) {
+	var start, end int
 	cli := bufio.NewScanner(os.Stdin)
 	for {
 		cli.Scan()
 		input := cli.Text()
 
 		switch {
-		case input == "main":
-			viewMailList(mails, os.Stdout)
+		case input == "main", input == "view":
+			start = 0
+			start, end = c.printList(start, end)
+		case input == "more":
+			start, end = c.printList(start, end)
 		case strings.HasPrefix(input, "reply"):
 			num, err := strconv.Atoi(strings.TrimPrefix(input, "reply "))
 			if err != nil {
 				fmt.Println(err)
 			}
-			reply := replyMessage(mails[num-1].(*gomua.Message))
+			reply := replyMessage(c.messages[num-1].(*gomua.Message))
 			gomua.Send(reply)
-			//viewMessage(reply)
-			//gomua.Send(&reply.Message)
 		case input == "exit", input == "x", input == "quit", input == "q":
 			exit <- true
 		case strings.ContainsAny(input, "01234566789"):
 			num, _ := strconv.Atoi(input)
-			if num <= len(mails) && num > 0 {
-				viewMail(mails[num-1], os.Stdout)
+			if num <= len(c.messages) && num > 0 {
+				viewMail(c.messages[num-1], os.Stdout)
 			}
 		}
 
@@ -121,11 +147,11 @@ func main() {
 	// TODO: read from config? or command line arg?
 	const dir string = "./testmaildir"
 
-	msgs := scanMailDir(dir)
-	viewMailList(msgs, os.Stdout)
+	client := &client{displayN: 25, user: "Frenata <mr.k.frenata@gmail.com>"}
+	client.scanMailDir(dir)
 
 	exit := make(chan bool, 1)
-	go input(msgs, exit)
+	go client.input(exit)
 
 	<-exit
 	os.Exit(2)
