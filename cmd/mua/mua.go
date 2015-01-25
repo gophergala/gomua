@@ -74,8 +74,8 @@ func (c *client) scanMailDir(dir string) {
 
 	// Embed mail.Message inside gomua.Message
 	for _, m := range mails {
-		msg := gomua.ReadMessage(m)
-		msgs = append(msgs, msg)
+		//msg := gomua.ReadMessage(m)
+		msgs = append(msgs, m)
 	}
 
 	c.messages = msgs

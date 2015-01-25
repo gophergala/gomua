@@ -13,7 +13,8 @@ import (
 
 type Message struct {
 	mail.Message
-	Content string
+	Content  string
+	Filename string
 }
 
 func (m *Message) store() {
