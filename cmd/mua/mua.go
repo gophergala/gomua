@@ -15,7 +15,7 @@ import (
 )
 
 // takes a Maildir directory, scans for messages, and returns a slice of Message structs.
-func scanMailDir(dir string) (msgs []*gomua.Message) {
+func scanMailDir(dir string) (msgs []gomua.Mail) {
 	mails := gomua.Scan(dir)
 
 	// Embed mail.Message inside gomua.Message
@@ -28,21 +28,15 @@ func scanMailDir(dir string) (msgs []*gomua.Message) {
 }
 
 // takes a slice of Messages and prints a numbered list of summaries
-func viewMail(msgs []*gomua.Message, w io.Writer) {
+func viewMailList(msgs []gomua.Mail, w io.Writer) {
 	for i, m := range msgs {
-		subject := m.Header.Get("Subject")
-		from := m.Header.Get("From")
-		fmt.Fprintf(w, "%d. %s from %s\n", i+1, color(subject, "31"), color(from, "33"))
+		fmt.Fprintf(w, "%d. %s\n", i+1, m.Summary())
 	}
 }
 
 // prints a single mail message to the screen
-func viewMessage(msg *gomua.Message) {
-	fmt.Printf("From: %v\n", msg.Header.Get("From"))
-	fmt.Printf("To: %v\n", msg.Header.Get("To"))
-	fmt.Printf("Date: %v\n", msg.Header.Get("Date"))
-	fmt.Printf("Subject: %v\n", msg.Header.Get("Subject"))
-	fmt.Printf("\n%s\n", msg.Content)
+func viewMail(msg gomua.Mail, w io.Writer) {
+	fmt.Fprint(w, msg)
 }
 
 // (to be invoked from viewMessage with a keypress, most likely)
@@ -91,7 +85,7 @@ func color(s string, color string) string {
 }
 
 // user input loop
-func input(mails []*gomua.Message, exit chan bool) {
+func input(mails []gomua.Mail, exit chan bool) {
 	cli := bufio.NewScanner(os.Stdin)
 	for {
 		cli.Scan()
@@ -99,13 +93,13 @@ func input(mails []*gomua.Message, exit chan bool) {
 
 		switch {
 		case input == "main":
-			viewMail(mails, os.Stdout)
+			viewMailList(mails, os.Stdout)
 		case strings.HasPrefix(input, "reply"):
 			num, err := strconv.Atoi(strings.TrimPrefix(input, "reply "))
 			if err != nil {
 				fmt.Println(err)
 			}
-			reply := replyMessage(mails[num-1])
+			reply := replyMessage(mails[num-1].(*gomua.Message))
 			gomua.Send(reply)
 			//viewMessage(reply)
 			//gomua.Send(&reply.Message)
@@ -114,7 +108,7 @@ func input(mails []*gomua.Message, exit chan bool) {
 		case strings.ContainsAny(input, "01234566789"):
 			num, _ := strconv.Atoi(input)
 			if num <= len(mails) && num > 0 {
-				viewMessage(mails[num-1])
+				viewMail(mails[num-1], os.Stdout)
 			}
 		}
 
@@ -128,7 +122,7 @@ func main() {
 	const dir string = "./testmaildir"
 
 	msgs := scanMailDir(dir)
-	viewMail(msgs, os.Stdout)
+	viewMailList(msgs, os.Stdout)
 
 	exit := make(chan bool, 1)
 	go input(msgs, exit)
