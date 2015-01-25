@@ -88,6 +88,15 @@ func WriteMessage(r io.Reader) *Message {
 	fmt.Print("Subject: ")
 	cli.Scan()
 	subject := cli.Text()
+	content := WriteContent(r)
+
+	msg := NewMessage(to, from, subject, nil, content)
+	msg.AddHeader("Content-Type: text/plain; charset=UTF-8")
+	return msg
+}
+
+func WriteContent(r io.Reader) string {
+	cli := bufio.NewScanner(r)
 	fmt.Print("Content: (Enter SEND to finish adding content and send the email.\n")
 
 	var content string
@@ -100,10 +109,7 @@ func WriteMessage(r io.Reader) *Message {
 			content += line + "\n"
 		}
 	}
-
-	msg := NewMessage(to, from, subject, nil, content)
-	msg.AddHeader("Content-Type: text/plain; charset=UTF-8")
-	return msg
+	return content
 }
 
 // Save writes the message to a file.
