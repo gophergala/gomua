@@ -12,6 +12,12 @@ import (
 	"strings"
 )
 
+type ThreadedMessage struct {
+	mail.Message
+	Content string
+	next    *ThreadedMessage
+}
+
 type Message struct {
 	mail.Message
 	Content  string
