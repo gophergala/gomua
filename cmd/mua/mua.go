@@ -107,7 +107,8 @@ func input(mails []*mail.Message, exit chan bool) {
 }
 
 func main() {
-	mails := fakeMailDir()
+	//mails := fakeMailDir()
+	mails := gomua.Scan("./testmaildir")
 	viewMail(mails, os.Stdout)
 
 	exit := make(chan bool, 1)

@@ -11,6 +11,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/gophergala/gomua"
 	"io"
 	"net/mail"
 	"os"
@@ -76,18 +77,7 @@ func main() {
 
 	for i := 0; i < flag.NArg(); i++ {
 		path := flag.Arg(i)
-		switch dir, err := os.Stat(path); {
-		case err != nil:
-			fmt.Printf("%v", err)
-			exitCode = 2
-		case dir.IsDir():
-			walkDir(path)
-		default:
-			if err := processFile(path, nil, false); err != nil {
-				fmt.Printf("%v", err)
-				exitCode = 2
-			}
-		}
+		gomua.Scan(path)
 	}
 	os.Exit(exitCode)
 }
