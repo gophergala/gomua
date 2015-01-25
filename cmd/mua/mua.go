@@ -60,13 +60,12 @@ func viewMail(msg gomua.Mail, w io.Writer) {
 // put old's Subject in reply's subject as "RE: Subject" (but allow user to edit? -- later)
 // prompt user for content
 // send reply
-func replyMessage(old *gomua.Message) (reply *mail.Message) {
+func replyMessage(old *gomua.Message, user string) (reply *mail.Message) {
 	oldid := old.Header.Get("Message-ID")
 	oldref := old.Header.Get("References")
 
 	to := "To: " + old.Header.Get("From") + "\r\n"
-	// TODO: pull from config?
-	from := "From: mr.k.frenata@gmail.com\r\n"
+	from := fmt.Sprintf("From: %s\r\n", user)
 
 	subject := fmt.Sprintf("Subject: RE: %s\r\n", old.Header.Get("Subject"))
 	inreplyto := fmt.Sprintf("In-Reply-To: %s\r\n", oldid)
@@ -127,7 +126,7 @@ func (c *client) input(exit chan bool) {
 			if err != nil {
 				fmt.Println(err)
 			}
-			reply := replyMessage(c.messages[num-1].(*gomua.Message))
+			reply := replyMessage(c.messages[num-1].(*gomua.Message), c.user)
 			gomua.Send(reply)
 		case input == "exit", input == "x", input == "quit", input == "q":
 			exit <- true
