@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/mail"
@@ -13,54 +14,57 @@ import (
 	"os/user"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const configLocation = "/.gomua/send.cfg"
 
 // Message contains critical data necessary for sending a message.
 type Message struct {
-	To      []*mail.Address
-	From    *mail.Address
-	Subject string
-	Headers []string
-	Content string
+	to      []*mail.Address
+	from    *mail.Address
+	subject string
+	headers []string
+	content string
 }
 
 // NewMessage takes strings that specify the recipients, the sender, the subject, a slice of other email header values, and the content of an email.
 func NewMessage(to, from, subject string, headers []string, content string) *Message {
 	m := new(Message)
-	m.To, _ = mail.ParseAddressList(to)
-	m.From, _ = mail.ParseAddress(from)
-	m.Subject = subject
-	m.Headers = headers
-	m.Content = content
+	m.to, _ = mail.ParseAddressList(to)
+	m.from, _ = mail.ParseAddress(from)
+	m.subject = subject
+	m.headers = headers
+	m.content = content
 
 	return m
 }
 
-// Outputs the list of parsed addresses back into a single string for appending to the email.
-func (m *Message) allTo() string {
-	var output string
+func (m *Message) From() string    { return m.from.String() }
+func (m *Message) Subject() string { return m.subject }
+func (m *Message) Content() string { return m.content }
 
-	for i, f := range m.To {
+// Outputs the list of parsed addresses back into a single string for appending to the email.
+func (m *Message) To() (output string) {
+	for i, f := range m.to {
 		output += f.String()
-		if len(m.To)-1 > i {
+		if len(m.to)-1 > i {
 			output += ","
 		}
 	}
-
 	return output
 }
 
 // Writes the slice of headers one on each line.
-func (m *Message) allHeaders() string {
-	var output string
-
-	for _, h := range m.Headers {
+func (m *Message) Headers() (output string) {
+	for _, h := range m.headers {
 		output += h + "\n"
 	}
-
 	return output
+}
+
+func (m *Message) AddHeader(header string) {
+	m.headers = append(m.headers, header)
 }
 
 // SMTPServer describes a connection to an SMTP server for sending mail.
@@ -79,7 +83,7 @@ func NewSMTPServer(filename string) (*SMTPServer, error) {
 
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, errors.New("Missing ~/.mua/send.cfg file.")
+		return nil, errors.New("Missing ~/.gomua/send.cfg file.")
 	}
 
 	lines := strings.Split(string(b), "\n")
@@ -143,11 +147,11 @@ func sendSMTP(server *SMTPServer, msg *Message) error {
 	defer c.Quit()
 
 	// Set sender and receiver
-	if err := c.Mail(msg.From.Address); err != nil {
+	if err := c.Mail(msg.from.Address); err != nil {
 		log.Fatal(err)
 	}
 
-	for _, t := range msg.To {
+	for _, t := range msg.to {
 		if err := c.Rcpt(t.Address); err != nil {
 			log.Fatal(err)
 		}
@@ -158,7 +162,8 @@ func sendSMTP(server *SMTPServer, msg *Message) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = fmt.Fprintf(wc, "To: %v\nFrom: %v\nSubject: %v\n%v\n\n%v", msg.allTo(), msg.From, msg.Subject, msg.allHeaders(), msg.Content)
+	msg.AddHeader(fmt.Sprintf("Date: %s%s", time.Now().Local().Format(time.RFC822), "\r\n"))
+	_, err = fmt.Fprintf(wc, "To: %v\nFrom: %v\nSubject: %v\n%v\n\n%v", msg.To(), msg.From(), msg.Subject(), msg.Headers(), msg.Content())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -170,17 +175,9 @@ func sendSMTP(server *SMTPServer, msg *Message) error {
 	return nil
 }
 
-// Send interactively prompts the user for an email to send.
-func Send() {
-	// Look for a SMTPServer configuration file in ~/.mua/send.cfg
-	u, _ := user.Current()
-	srv, err := NewSMTPServer(u.HomeDir + configLocation)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	cli := bufio.NewScanner(os.Stdin)
+// WriteMessage interactively prompts the user for an email to send.
+func WriteMessage(r io.Reader) *Message {
+	cli := bufio.NewScanner(r)
 
 	fmt.Print("To: ")
 	cli.Scan()
@@ -198,7 +195,6 @@ func Send() {
 		cli.Scan()
 		line := cli.Text()
 		if line == "SEND" {
-			fmt.Println("\nSending...")
 			break
 		} else {
 			content += line + "\n"
@@ -206,6 +202,21 @@ func Send() {
 	}
 
 	msg := NewMessage(to, from, subject, nil, content)
+	msg.AddHeader("Content-Type: text/plain; charset=UTF-8")
+	return msg
+}
+
+// Send opens a new SMTP server connection from the config file and sends a message.
+func Send(msg *Message) {
+	// Look for a SMTPServer configuration file in ~/.gomua/send.cfg
+	u, _ := user.Current()
+	srv, err := NewSMTPServer(u.HomeDir + configLocation)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("\nSending...")
 
 	if sendSMTP(srv, msg) == nil {
 		fmt.Println("Message Sent")
@@ -213,5 +224,6 @@ func Send() {
 }
 
 func main() {
-	Send()
+	// write a message on the stdin and send it
+	Send(WriteMessage(os.Stdin))
 }
