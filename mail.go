@@ -1,6 +1,11 @@
 package gomua
 
-import "fmt"
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"strings"
+)
 
 // Mail interface defines mail to be read.
 // This can be a threaded list of messages, or a single message.
@@ -23,8 +28,43 @@ func (m *Message) String() string {
 	var output string = fmt.Sprintf("From: %v\n", m.Header.Get("From")) +
 		fmt.Sprintf("To: %v\n", m.Header.Get("To")) +
 		fmt.Sprintf("Date: %v\n", m.Header.Get("Date")) +
-		fmt.Sprintf("Subject: %v\n", m.Header.Get("Subject")) +
-		fmt.Sprintf("\n%s\n", m.Content)
+		fmt.Sprintf("Subject: %v\n", m.Header.Get("Subject"))
+
+		//output += fmt.Sprintf("\n%s\n", m.Content)
+
+	var bound string
+	var boundB bool = false
+	t := m.Header.Get("Content-Type")
+	//for _, t := range ctypes {
+	if strings.Contains(t, "boundary=") {
+		bs := strings.Split(t, "boundary=")
+		bound = "--" + bs[1]
+		boundB = true
+	}
+	//}
+
+	raw := bufio.NewScanner(strings.NewReader(m.Content))
+	buf := new(bytes.Buffer)
+	var write bool = true
+	for raw.Scan() {
+		line := raw.Text()
+		if strings.Contains(line, "Content-Type:") {
+			write = false
+		}
+
+		if !strings.Contains(line, "Content-Transfer-Encoding") {
+			if !boundB || boundB && line != bound {
+				if write {
+					buf.WriteString(line + "\r\n")
+				}
+			}
+		}
+
+		if strings.Contains(line, "Content-Type: text/plain") {
+			write = true
+		}
+	}
+	output += fmt.Sprintf("\n%s\n", buf.Bytes())
 
 	return output
 }
