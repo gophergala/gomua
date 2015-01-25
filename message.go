@@ -14,8 +14,9 @@ import (
 
 type ThreadedMessage struct {
 	mail.Message
-	Content string
-	next    *ThreadedMessage
+	Content  string
+	Filename string
+	next     *ThreadedMessage
 }
 
 type Message struct {
