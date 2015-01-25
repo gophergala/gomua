@@ -37,12 +37,18 @@ func (m *Message) String() string {
 		m.From(), m.To(), m.Date(), m.Subject(), m.Content())
 }
 
-func (m *Message) From() string    { return m.from.String() }
-func (m *Message) Subject() string { return m.subject }
-func (m *Message) Content() string { return m.content }
-func (m *Message) Date() string    { return m.date.Format(time.RFC822) }
-
+func (m *Message) Subject() string        { return m.subject }
+func (m *Message) Content() string        { return m.content }
+func (m *Message) Date() string           { return m.date.Format(time.RFC822) }
 func (m *Message) SetDate(date time.Time) { m.date = date }
+
+func (m *Message) From() string {
+	if m.from != nil {
+		return m.from.String()
+	} else {
+		return ""
+	}
+}
 
 // Outputs the list of parsed addresses back into a single string for appending to the email.
 func (m *Message) To() (output string) {

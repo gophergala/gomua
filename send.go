@@ -95,7 +95,13 @@ func sendSMTP(server *SMTPServer, msg *Message) error {
 	defer c.Quit()
 
 	// Set sender and receiver
-	if err := c.Mail(msg.from.Address); err != nil {
+	var from string
+	if msg.from == nil {
+		from = server.username
+	} else {
+		from = msg.from.Address
+	}
+	if err := c.Mail(from); err != nil {
 		log.Fatal(err)
 	}
 
