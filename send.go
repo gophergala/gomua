@@ -110,8 +110,9 @@ func sendSMTP(server *SMTPServer, msg *Message) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	msg.AddHeader(fmt.Sprintf("Date: %s%s", time.Now().Local().Format(time.RFC822), "\r\n"))
-	_, err = fmt.Fprintf(wc, "To: %v\nFrom: %v\nSubject: %v\n%v\n\n%v", msg.To(), msg.From(), msg.Subject(), msg.Headers(), msg.Content())
+	msg.SetDate(time.Now().Local())
+	_, err = fmt.Fprint(wc, msg.Headers())
+	_, err = fmt.Fprint(wc, msg.String())
 	if err != nil {
 		log.Fatal(err)
 	}

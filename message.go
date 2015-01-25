@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"io"
 	"net/mail"
+	"time"
 )
 
 // Message contains critical data necessary for readding/sending a message.
 type Message struct {
 	to      []*mail.Address
 	from    *mail.Address
+	date    time.Time
 	subject string
 	headers []string
 	content string
@@ -28,9 +30,19 @@ func NewMessage(to, from, subject string, headers []string, content string) *Mes
 	return m
 }
 
+// Strings pretty prints Message, with just the standard headers.
+func (m *Message) String() string {
+	return fmt.Sprintf(
+		"From: %s\nTo: %s\nDate: %v\nSubject: %s\n\n%s\n",
+		m.From(), m.To(), m.Date(), m.Subject(), m.Content())
+}
+
 func (m *Message) From() string    { return m.from.String() }
 func (m *Message) Subject() string { return m.subject }
 func (m *Message) Content() string { return m.content }
+func (m *Message) Date() string    { return m.date.Format(time.RFC822) }
+
+func (m *Message) SetDate(date time.Time) { m.date = date }
 
 // Outputs the list of parsed addresses back into a single string for appending to the email.
 func (m *Message) To() (output string) {
