@@ -49,7 +49,8 @@ func visitFile(path string, f os.FileInfo, err error) error {
 		err = processFile(path, nil, false)
 	}
 	if err != nil {
-		fmt.Printf("%s", err)
+		// This was printing errors when reaading a directory, nerfing the msg for now.
+		//fmt.Printf("%s", err)
 	}
 	return nil
 }
